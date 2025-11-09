@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>电报通信原理 · 摩尔斯电码交互教学页</title>
+<style>
+  :root{
+    --bg:#0f172a;         /* slate-900 */
+    --card:#111827;       /* gray-900 */
+    --accent:#22d3ee;     /* cyan-400 */
+    --accent2:#38bdf8;    /* sky-400 */
+    --text:#e5e7eb;       /* gray-200 */
+    --muted:#94a3b8;      /* slate-400 */
+    --good:#34d399;
+    --warn:#f59e0b;
+    --unit:140ms;         /* 默认基准单位 */
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    background: radial-gradient(1200px 800px at 80% -10%, #1f2937 0%, var(--bg) 40%  );
+    color:var(--text);
+  }
+  header{
+    padding:24px 20px 8px;
+    text-align:center;
+  }
+  h1{
+    margin:0 0 8px;
+    font-size:clamp(22px, 4vw, 36px);
+    letter-spacing:0.4px;
+  }
+  .sub{color:var(--muted); font-size:14px}
+  main{
+    max-width:1100px;
+    margin:16px auto 64px;
+    padding:0 16px;
+    display:grid;
+    grid-template-columns: 1.25fr 1fr;
+    gap:20px;
+  }
+  .card{
+    background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+    border:1px solid rgba(255,255,255,.08);
+    backdrop-filter: blur(4px);
+    border-radius:16px;
+    box-shadow:0 10px 30px rgba(0,0,0,.25);
+    padding:18px;
+  }
+  .card h2{margin:0 0 8px; font-size:18px}
+  .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  input[type="text"], textarea, select{
+    width:100%;
+    padding:12px 14px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,.1);
+    background:#0b1220;
+    color:var(--text);
+    outline:none;
+  }
+  textarea{min-height:110px; resize:vertical}
+  .pill{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:8px 10px; border-radius:999px;
+    border:1px solid rgba(255,255,255,.1);
+    background:#0b1220; color:var(--muted);
+    font-size:12px;
+  }
+  .btn{
+    cursor:pointer; user-select:none;
+    border:none; padding:10px 14px; border-radius:12px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    color:#031424; font-weight:700; letter-spacing:.2px;
+    transition: transform .06s ease, filter .2s ease;
+  }
+  .btn:active{ transform: translateY(1px) }
+  .btn.secondary{ background:#0b1220; color:var(--text); border:1px solid rgba(255,255,255,.1) }
+  .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+  .muted{color:var(--muted)}
+  .stack{display:flex;flex-direction:column;gap:10px}
+  .grid-2{display:grid; grid-template-columns: 1fr 1fr; gap:10px}
+  .grid-3{display:grid; grid-template-columns: repeat(3, 1fr); gap:6px}
+  .table{
+    display:grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap:8px;
+    margin-top:8px;
+    font-size:14px;
+  }
+  .cell{
+    padding:8px 10px; border-radius:10px;
+    background:#0b1220; border:1px solid rgba(255,255,255,.08);
+    display:flex; justify-content:space-between; gap:8px;
+  }
+  .cell b{color:#fff}
+  .badge{font-variant-numeric: tabular-nums; color:var(--accent)}
+  .out{
+    min-height:64px;
+    padding:10px 12px;
+    border-radius:12px; border:1px dashed rgba(255,255,255,.15);
+    background:#0b1220; font-size:18px;
+  }
+  /* Telegraph line */
+  .telegraph{
+    position:relative; height:140px; margin-top:8px;
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+  }
+  .wire{width:92%; height:4px; background:linear-gradient(90deg, #334155, #475569); border-radius:3px; position:relative; }
+  .pulse{
+    --x:0%;
+    position:absolute; top:-5px; left:0;
+    translate: var(--x) 0;
+    width:14px; height:14px;
+    border-radius:50%;
+    background: radial-gradient(circle at 40% 40%, #fff, var(--accent));
+    box-shadow:0 0 14px 6px rgba(34,211,238,.45), 0 0 40px rgba(56,189,248,.25);
+  }
+  .rx{
+    position:absolute; right:4%; top:50%; transform:translateY(-50%);
+    width:20px; height:20px; border-radius:50%;
+    background:#0b1220; border:2px solid var(--accent2);
+    box-shadow:0 0 0 0 rgba(56,189,248,.0); 
+  }
+  .rx.flash{ box-shadow:0 0 0 10px rgba(56,189,248,.15), inset 0 0 10px rgba(56,189,248,.6); }
+  .legend{display:flex; gap:10px; align-items:center; margin-top:6px}
+  .dot, .dash{height:8px; border-radius:6px; background:var(--accent)}
+  .dot{width:20px}
+  .dash{width:52px}
+  footer{max-width:1100px;margin:20px auto 36px;color:var(--muted);padding:0 16px;text-align:center;font-size:13px}
+  .kbd{font-weight:700; background:#0b1220; padding:2px 6px; border-radius:6px; border:1px solid rgba(255,255,255,.1)}
+  .progress{height:6px;background:#0b1220;border:1px solid rgba(255,255,255,.08);border-radius:999px;overflow:hidden}
+  .bar{height:100%;width:0%;background:linear-gradient(90deg,var(--good),var(--accent2)); transition:width .2s linear}
+  .small{font-size:12px}
+</style>
+</head>
+<body>
+  <header>
+    <h1>“电报通信原理”交互式教学页面</h1>
+    <div class="sub">输入英文或数字 → 实时转为 <b>摩尔斯电码</b>（· 短，– 长）→ 点击“发送”可播放声音并展示电报线路动画。</div>
+  </header>
+
+  <main>
+    <!-- 左：交互与动画 -->
+    <section class="card stack">
+      <h2>① 编码与电报发送</h2>
+      <div class="grid-2">
+        <div class="stack">
+          <label class="muted small">明文输入</label>
+          <textarea id="plain" placeholder="输入英文、数字或空格，如: HELLO 123"></textarea>
+        </div>
+        <div class="stack">
+          <label class="muted small">摩尔斯电码（自动生成）</label>
+          <div class="out mono" id="morseOut"></div>
+        </div>
+      </div>
+
+      <div class="row">
+        <button class="btn" id="btnSend">▶ 发送并播放</button>
+        <button class="btn secondary" id="btnStop">■ 停止</button>
+        <span class="pill">点/划基准单位：
+          <select id="unitSel">
+            <option value="100">100ms</option>
+            <option value="140" selected>140ms</option>
+            <option value="180">180ms</option>
+            <option value="220">220ms</option>
+          </select>
+        </span>
+        <span class="pill">音调频率：<select id="freqSel">
+          <option>500</option><option selected>650</option><option>800</option><option>1000</option>
+        </select> Hz</span>
+        <span class="pill">音量：<input type="range" min="0" max="1" step="0.02" value="0.5" id="gainRange" /></span>
+      </div>
+
+      <div class="progress"><div class="bar" id="bar"></div></div>
+
+      <div class="telegraph">
+        <div class="wire" id="wire">
+          <div class="pulse" id="pulse" style="--x:0%"></div>
+          <div class="rx" id="rx"></div>
+        </div>
+      </div>
+
+      <div class="legend">
+        <span class="muted small">时间对比：</span>
+        <div class="dot"></div><span class="muted small">点=1单位</span>
+        <div class="dash"></div><span class="muted small">划=3单位</span>
+      </div>
+    </section>
+
+    <!-- 右：参考与练习 -->
+    <section class="card stack">
+      <h2>② 摩尔斯电码对照表（A–Z, 0–9）</h2>
+      <div id="table" class="table"></div>
+      <hr style="border-color:rgba(255,255,255,.1)">
+      <h2>③ 练习模式</h2>
+      <div class="stack">
+        <div class="row">
+          <button class="btn" id="btnQuiz">随机字符</button>
+          <div class="pill">按下 <span class="kbd">空格</span> 发送点/划（按住=划，轻点=点）</div>
+        </div>
+        <div class="out mono" id="quizArea">按“随机字符”开始</div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div>© 2025 Morse Telegraph Demo · 教学用途。单位时间、频率、音量可调。支持 <span class="mono">WebAudio</span> 与 CSS 动画。</div>
+  </footer>
+
+<script>
+// ======= 数据映射 =======
+const MAP = {
+  "A":".-","B":"-...","C":"-.-.","D":"-..","E":".","F":"..-.","G":"--.","H":"....","I":"..","J":".---",
+  "K":"-.-","L":".-..","M":"--","N":"-.","O":"---","P":".--.","Q":"--.-","R":".-.","S":"...","T":"-",
+  "U":"..-","V":"...-","W":".--","X":"-..-","Y":"-.--","Z":"--..",
+  "0":"-----","1":".----","2":"..---","3":"...--","4":"....-","5":".....",
+  "6":"-....","7":"--...","8":"---..","9":"----."
+};
+const ALPH = Object.keys(MAP);
+
+// ======= DOM =======
+const plain = document.getElementById('plain');
+const morseOut = document.getElementById('morseOut');
+const table = document.getElementById('table');
+const btnSend = document.getElementById('btnSend');
+const btnStop = document.getElementById('btnStop');
+const unitSel = document.getElementById('unitSel');
+const freqSel = document.getElementById('freqSel');
+const gainRange = document.getElementById('gainRange');
+const pulse = document.getElementById('pulse');
+const rx = document.getElementById('rx');
+const bar = document.getElementById('bar');
+const quizArea = document.getElementById('quizArea');
+const btnQuiz = document.getElementById('btnQuiz');
+
+// ======= 渲染对照表 =======
+function renderTable(){
+  const frag = document.createDocumentFragment();
+  ALPH.concat([" "]).forEach(k=>{
+    const cell = document.createElement('div');
+    cell.className = 'cell mono';
+    if(k===" "){
+      cell.innerHTML = "<b>SPACE</b><span class='badge'>/</span>";
+    }else{
+      cell.innerHTML = `<b>${k}</b><span class="badge">${MAP[k]}</span>`;
+    }
+    frag.appendChild(cell);
+  });
+  table.appendChild(frag);
+}
+renderTable();
+
+// ======= 文本→摩尔斯 =======
+function toMorse(str){
+  return str.toUpperCase().split('').map(ch => {
+    if(ch === ' ') return '/';
+    return MAP[ch] || '';
+  }).filter(Boolean).join(' ');
+}
+function updateOutput(){
+  const text = plain.value;
+  const morse = toMorse(text);
+  morseOut.textContent = morse;
+}
+plain.addEventListener('input', updateOutput);
+updateOutput();
+
+// ======= 音频引擎 =======
+let ctx, osc, gain;
+function ensureAudio(){
+  if(!ctx){
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    gain = ctx.createGain();
+    gain.gain.value = parseFloat(gainRange.value);
+    gain.connect(ctx.destination);
+  }
+}
+gainRange.addEventListener('input', ()=>{ ensureAudio(); gain.gain.value = parseFloat(gainRange.value) });
+
+function beep(duration){
+  ensureAudio();
+  osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.value = parseFloat(freqSel.value);
+  osc.connect(gain);
+  osc.start();
+  return new Promise(res=>{
+    setTimeout(()=>{
+      osc.stop();
+      res();
+    }, duration);
+  });
+}
+
+// ======= 动画辅助 =======
+function animatePulse(ms, progressRatio){
+  return new Promise(res=>{
+    const wire = document.getElementById('wire');
+    const wireBox = wire.getBoundingClientRect();
+    const start = performance.now();
+    function step(now){
+      const t = Math.min(1, (now - start) / ms);
+      const x = t * 0.92 * 100; // 0→92%
+      pulse.style.setProperty('--x', `${x}%`);
+      bar.style.width = `${Math.max(progressRatio*100, t*100)}%`;
+      if(t>=1){ rx.classList.remove('flash'); rx.offsetWidth; rx.classList.add('flash'); setTimeout(()=>rx.classList.remove('flash'), 120); res(); }
+      else requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  });
+}
+
+// ======= 发送调度（含时序规则） =======
+let stopping = false;
+btnStop.addEventListener('click', ()=>{ stopping = true; bar.style.width = '0%'; });
+
+async function send(){
+  const unit = parseInt(unitSel.value,10);
+  const morse = morseOut.textContent.trim();
+  if(!morse){ return; }
+
+  // 时序：点=1u，划=3u；同字母内间隔=1u；字母间隔=3u；词间隔=7u
+  const symbols = morse.split('');
+  const totalUnits = symbols.reduce((acc, ch)=>{
+    if(ch==='.') return acc+1 + 1; // 声+间隔1
+    if(ch==='-') return acc+3 + 1;
+    if(ch===' ') return acc+2;     // 字母：已在上面+1，再补2(总3)
+    if(ch==='/') return acc+6;     // 词间：补6(总7)
+    return acc;
+  }, 0);
+  let consumedUnits = 0;
+
+  stopping = false;
+  ensureAudio();
+
+  for(let i=0;i<symbols.length;i++){
+    if(stopping) break;
+    const ch = symbols[i];
+    if(ch==='.' || ch==='-'){
+      const durU = ch==='.' ? 1 : 3;
+      await beep(durU*unit);
+      consumedUnits += durU;
+      await animatePulse(durU*unit, consumedUnits/totalUnits);
+      // 符号内间隔 1u（若下一个仍是.或-）
+      if(i<symbols.length-1 && (symbols[i+1]==='.' || symbols[i+1]==='-')){
+        await new Promise(r=>setTimeout(r, unit));
+        consumedUnits += 1;
+      }
+    }else if(ch===' '){
+      await new Promise(r=>setTimeout(r, unit*2)); // 已经有了1u间隔，补足到3u
+      consumedUnits += 2;
+    }else if(ch==='/'){
+      await new Promise(r=>setTimeout(r, unit*6)); // 补足到7u
+      consumedUnits += 6;
+    }
+    bar.style.width = `${(consumedUnits/totalUnits)*100}%`;
+  }
+}
+
+btnSend.addEventListener('click', send);
+
+// ======= 练习模式：空格键键控 =======
+let quizChar = null;
+function randomChar(){
+  const pool = ALPH;
+  quizChar = pool[Math.floor(Math.random()*pool.length)];
+  quizArea.textContent = `请用空格键敲出： ${quizChar}   (答案：${MAP[quizChar]})`;
+}
+btnQuiz.addEventListener('click', randomChar);
+
+// 键控：按住=划，短点=点；阈值 2*unit 判定
+let pressStart = 0;
+window.addEventListener('keydown', (e)=>{
+  if(e.code==='Space'){
+    e.preventDefault();
+    pressStart = performance.now();
+    beep(10); // 立即起音，抬起时停止
+  }
+});
+window.addEventListener('keyup', (e)=>{
+  if(e.code==='Space'){
+    e.preventDefault();
+    const unit = parseInt(unitSel.value,10);
+    const hold = performance.now() - pressStart;
+    if(osc){ try{ osc.stop(); }catch{} }
+    const mark = hold >= 2*unit ? '-' : '.';
+    quizArea.textContent += ` ${mark}`;
+  }
+});
+
+// 初始指引
+plain.value = "HELLO WORLD 123";
+updateOutput();
+</script>
+</body>
+</html>
