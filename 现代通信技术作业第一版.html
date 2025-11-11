@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>电报通信原理 · 交互式教学页</title>
+  <style>
+/* 基础布局与主题 */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  color: #111;
+  background: #f7f7fb;
+}
+.app-header {
+  padding: 28px 16px 10px;
+  text-align: center;
+  background: white;
+  border-bottom: 1px solid #eee;
+}
+.app-header h1 {
+  margin: 0 0 6px;
+  font-size: 28px;
+  letter-spacing: 0.5px;
+}
+.subtitle {
+  margin: 0 0 8px;
+  color: #666;
+  font-size: 14px;
+}
+.container {
+  max-width: 1100px;
+  padding: 16px;
+  margin: 0 auto;
+}
+.panel {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.panel h2 {
+  margin-top: 0;
+  font-size: 20px;
+  border-left: 4px solid #2c7be5;
+  padding-left: 10px;
+}
+.row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 50px 1fr;
+  align-items: stretch;
+}
+textarea {
+  width: 100%;
+  min-height: 140px;
+  resize: vertical;
+  font-size: 15px;
+  padding: 12px;
+  border: 1px solid #e4e6ef;
+  border-radius: 8px;
+  outline: none;
+}
+textarea[readonly] {
+  background: #fafafa;
+}
+.arrow {
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  color: #888;
+}
+.controls {
+  margin-top: 10px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+button {
+  border: 1px solid #e0e0e0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 14px;
+}
+button.primary {
+  background: #2c7be5;
+  color: white;
+  border-color: #2c7be5;
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+label {
+  font-size: 14px;
+  color: #333;
+}
+
+/* Telegraph animation area */
+.telegraph {
+  display: grid;
+  grid-template-columns: 140px 1fr 140px;
+  gap: 16px;
+  align-items: center;
+  margin-top: 10px;
+}
+.key, .receiver {
+  height: 90px;
+  border: 1px solid #e4e6ef;
+  border-radius: 10px;
+  background: #fafbfe;
+  display: grid;
+  place-items: center;
+}
+.key-cap, .receiver-cap {
+  font-weight: 600;
+}
+.wire {
+  position: relative;
+  height: 8px;
+  background: linear-gradient(90deg, #e8ecf4, #e8ecf4);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.signal {
+  position: absolute;
+  top: -6px;
+  left: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #2c7be5;
+  box-shadow: 0 0 12px rgba(44,123,229,0.8);
+  transform: translateX(0);
+  opacity: 0;
+}
+.legend { margin-top: 8px; color: #555; display: flex; gap: 16px; }
+.legend .dot::before { content: "•"; color: #2c7be5; margin-right: 6px; }
+.legend .dash::before { content: "—"; color: #2c7be5; margin-right: 6px; }
+.legend .gap::before { content: "/"; color: #2c7be5; margin-right: 6px; }
+
+/* table */
+#tableContainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+.code-cell {
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fcfcff;
+}
+.code-cell h4 { margin: 0 0 6px; font-size: 16px; }
+.code-cell p { margin: 0; color: #555; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+
+/* history cards */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.card {
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 12px;
+  background: #fff;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+}
+
+/* footer */
+.app-footer {
+  text-align: center;
+  color: #666;
+  padding: 20px 10px 30px;
+}
+
+</style>
+</head>
+<body>
+  <header class="app-header">
+    <h1>电报通信原理 · 交互式教学页</h1>
+    <p class="subtitle">摩尔斯电码编码 / 解码 · 电报发送动画 · 音效模拟 · 历史知识卡片</p>
+  </header>
+
+  <main class="container">
+    <section class="panel">
+      <h2>① 编码器（文字 → 摩尔斯电码）</h2>
+      <div class="row">
+        <textarea id="plainInput" placeholder="输入英文字母或数字（自动忽略其他字符）"></textarea>
+        <div class="arrow">→</div>
+        <textarea id="morseOutput" placeholder="这里显示摩尔斯电码（· 为点，– 为划）" readonly></textarea>
+      </div>
+      <div class="controls">
+        <button id="playMorseBtn" class="primary">▶ 播放音效并动画发送</button>
+        <label>速度：
+          <input id="speedRange" type="range" min="0.5" max="3" value="1" step="0.1">
+          <span id="speedLabel">1.0×</span>
+        </label>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>② 解码器（摩尔斯电码 → 文字）</h2>
+      <div class="row">
+        <textarea id="morseInput" placeholder="输入摩尔斯电码，用空格分隔字符（例如：.... . .-.. .-.. ---）"></textarea>
+        <div class="arrow">→</div>
+        <textarea id="plainOutput" placeholder="这里显示翻译后的文字" readonly></textarea>
+      </div>
+      <div class="controls">
+        <button id="decodeBtn">↧ 解码</button>
+        <button id="clearBtn">清空</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>③ 电报发送动画（点/划与电路传输）</h2>
+      <div class="telegraph">
+        <div class="key">
+          <div class="key-cap">按键</div>
+        </div>
+        <div class="wire">
+          <div class="signal" id="signal"></div>
+        </div>
+        <div class="receiver">
+          <div class="receiver-cap">接收端</div>
+        </div>
+      </div>
+      <div class="legend">
+        <span class="dot">· 点（短）</span>
+        <span class="dash">– 划（长）</span>
+        <span class="gap">/ 间隔</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>④ 摩尔斯电码对照表</h2>
+      <div id="tableContainer"></div>
+    </section>
+
+    <section class="panel">
+      <h2>⑤ 历史小知识</h2>
+      <div class="cards">
+        <article class="card">
+          <h3>电报的诞生</h3>
+          <p>1837年，塞缪尔·莫尔斯（Samuel Morse）发明电报机与摩尔斯电码，用点与划组合表示字母和数字，开启了远距离实时通信的时代。</p>
+        </article>
+        <article class="card">
+          <h3>莫尔斯与标准化</h3>
+          <p>莫尔斯码逐步标准化为国际摩尔斯电码（ITU），在海事与军事通信中长期使用，直到无线电与电话普及。</p>
+        </article>
+        <article class="card">
+          <h3>贝尔与电话</h3>
+          <p>1876年，亚历山大·格雷厄姆·贝尔（Alexander Graham Bell）发明电话，改进了通信线路与话音传输，但电报在随后很长时间仍是重要的远程信息工具。</p>
+        </article>
+        <article class="card">
+          <h3>SOS 与航海</h3>
+          <p>SOS（“… --- …”）作为国际遇险信号在20世纪广泛用于航海与救援，简单、醒目且易于通过电报设备发出。</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <p>© 2025 交互式教学演示 · 支持本地离线使用（HTML+CSS+JS）</p>
+  </footer>
+
+  <script>
+// Morse map
+const MORSE_MAP = {
+  "A": ".-",   "B": "-...", "C": "-.-.", "D": "-..",  "E": ".",    "F": "..-.",
+  "G": "--.",  "H": "....", "I": "..",   "J": ".---", "K": "-.-",  "L": ".-..",
+  "M": "--",   "N": "-.",   "O": "---",  "P": ".--.", "Q": "--.-", "R": ".-.",
+  "S": "...",  "T": "-",    "U": "..-",  "V": "...-", "W": ".--",  "X": "-..-",
+  "Y": "-.--", "Z": "--..",
+  "1": ".----","2": "..---","3": "...--","4": "....-","5": ".....",
+  "6": "-....","7": "--...","8": "---..","9": "----.","0": "-----",
+  ".": ".-.-.-", ",": "--..--", "?": "..--..", "!": "-.-.--", "/": "-..-.",
+  "@": ".--.-.", ":": "---...", ";": "-.-.-.", "=": "-...-", "-": "-....-",
+  "(": "-.--.", ")": "-.--.-", "+": ".-.-.", "&": ".-...", "'": ".----."
+};
+
+const REVERSE_MAP = Object.fromEntries(Object.entries(MORSE_MAP).map(([k,v]) => [v, k]));
+
+// UI Elements
+const plainInput = document.getElementById("plainInput");
+const morseOutput = document.getElementById("morseOutput");
+const morseInput = document.getElementById("morseInput");
+const plainOutput = document.getElementById("plainOutput");
+const playBtn = document.getElementById("playMorseBtn");
+const decodeBtn = document.getElementById("decodeBtn");
+const clearBtn = document.getElementById("clearBtn");
+const speedRange = document.getElementById("speedRange");
+const speedLabel = document.getElementById("speedLabel");
+const signal = document.getElementById("signal");
+const tableContainer = document.getElementById("tableContainer");
+
+// Audio (Web Audio API)
+let audioCtx;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function beep(durationSec=0.1, freq=600) {
+  const ctx = getAudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = "sine";
+  osc.frequency.value = freq;
+  gain.gain.value = 0.2;
+  osc.connect(gain).connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + durationSec);
+}
+
+// Timing rules (unit time)
+function unit() {
+  const spd = parseFloat(speedRange.value || "1");
+  // 基准 100ms，速度越快单位越短
+  return 0.1 / spd;
+}
+
+// Encode plain text to Morse
+function encodeMorse(text) {
+  return text
+    .toUpperCase()
+    .split("")
+    .map(ch => MORSE_MAP[ch] || (ch === " " ? "/" : ""))
+    .filter(Boolean)
+    .join(" ");
+}
+
+// Decode Morse to plain text
+function decodeMorse(code) {
+  return code
+    .trim()
+    .split(/\s+/)
+    .map(token => token === "/" ? " " : (REVERSE_MAP[token] || ""))
+    .join("");
+}
+
+// Live encoding
+plainInput.addEventListener("input", () => {
+  morseOutput.value = encodeMorse(plainInput.value);
+});
+
+// Decode button
+decodeBtn.addEventListener("click", () => {
+  plainOutput.value = decodeMorse(morseInput.value);
+});
+
+// Clear
+clearBtn.addEventListener("click", () => {
+  morseInput.value = "";
+  plainOutput.value = "";
+});
+
+// Speed label update
+speedRange.addEventListener("input", () => {
+  speedLabel.textContent = parseFloat(speedRange.value).toFixed(1) + "×";
+});
+
+// Build table
+function buildTable() {
+  const entries = Object.entries(MORSE_MAP);
+  tableContainer.innerHTML = "";
+  entries.forEach(([ch, morse]) => {
+    const cell = document.createElement("div");
+    cell.className = "code-cell";
+    cell.innerHTML = `<h4>${ch}</h4><p>${morse.replaceAll(".", "·").replaceAll("-", "–")}</p>`;
+    tableContainer.appendChild(cell);
+  });
+}
+buildTable();
+
+// Telegraph animation + audio for a Morse string
+async function playMorse(morse) {
+  playBtn.disabled = true;
+  const u = unit();
+  const dot = u;        // 点：1u
+  const dash = 3*u;     // 划：3u
+  const intraGap = u;   // 点/划间隔：1u
+  const charGap = 3*u;  // 字符间隔：3u
+  const wordGap = 7*u;  // 单词间隔：7u
+
+  // Helper: move signal across the wire
+  async function runPulse(duration) {
+    return new Promise(resolve => {
+      // show signal
+      signal.style.opacity = 1;
+      signal.style.transition = `transform ${duration}s linear, opacity .12s`;
+      signal.style.transform = `translateX(calc(100% - 20px))`;
+
+      beep(duration * 0.9, 600);
+
+      setTimeout(() => {
+        signal.style.opacity = 0;
+        signal.style.transition = `none`;
+        signal.style.transform = `translateX(0)`;
+        setTimeout(resolve, intraGap * 1000);
+      }, duration * 1000);
+    });
+  }
+
+  // Iterate tokens
+  const tokens = morse.trim().split(/\s+/);
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t === "/") {
+      // word gap
+      await new Promise(r => setTimeout(r, wordGap * 1000));
+      continue;
+    }
+    // each character's dot/dash
+    const parts = t.split("");
+    for (let j = 0; j < parts.length; j++) {
+      const p = parts[j];
+      if (p === ".") {
+        await runPulse(dot);
+      } else if (p === "-") {
+        await runPulse(dash);
+      }
+      if (j < parts.length - 1) {
+        await new Promise(r => setTimeout(r, intraGap * 1000));
+      }
+    }
+    // char gap if not last and next isn't word separator already
+    if (i < tokens.length - 1 && tokens[i+1] !== "/") {
+      await new Promise(r => setTimeout(r, charGap * 1000));
+    }
+  }
+
+  playBtn.disabled = false;
+}
+
+// Play Morse with encoding from plain input if needed
+playBtn.addEventListener("click", () => {
+  const text = plainInput.value.trim();
+  const morse = (morseOutput.value || encodeMorse(text)).trim();
+  if (!morse) return;
+  playMorse(morse);
+});
+
+// Initialize defaults
+plainInput.value = "HELLO WORLD";
+morseOutput.value = encodeMorse(plainInput.value);
+speedLabel.textContent = parseFloat(speedRange.value).toFixed(1) + "×";
+
+</script>
+</body>
+</html>
